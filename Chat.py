@@ -4,6 +4,10 @@ import re as re
 import threading
 
 
+global stop_thread
+
+stop_thread = False
+
 def set_port(s,address):
 
     #s = serial.Serial(port, 115200,timeout=1)
@@ -31,8 +35,6 @@ def send_msg (s,dest,msg):
     s.write(m.encode())
     #print (m)
 
-
-#read from the device’s serial port (should be done in a separate thread) 
 def read_msg (s):
     message = "" 
     bool = True
@@ -42,7 +44,7 @@ def read_msg (s):
     while bool: #while not terminated 
         #print (i)
         #i +=1
-        stop_thread= False
+        #stop_thread= False
         try: 
 
             byte = s.read(1) #read one byte (blocks until data available or timeout reached) 
@@ -53,11 +55,55 @@ def read_msg (s):
                 #print (message)
                 x = re.findall("R,D", message)
                 if x and message[0]=="m":
-
-                    print (message) #print message
+                    j = len(message)
+                    print (message[6:j-1]) #print message[6:j-1]
                     stop_thread=True
-                    if stop_thread:
-                        break
+                    break
+
+                #bool = False
+
+                message = "" #reset message
+
+            else:
+                
+                message = message + byte.decode("utf-8") #concatenate the message 
+                #print(message)
+
+            if stop_thread:
+                break
+        
+        
+        except serial.SerialException: 
+
+            continue #on timeout try to read again 
+
+        except KeyboardInterrupt: 
+
+            sys.exit() #on ctrl-c terminate program 
+
+def read_board (s):
+    message = "" 
+    bool = True
+    #i = 1
+    stop_thread = False;
+
+    while bool: #while not terminated 
+        #print (i)
+        #i +=1
+        #stop_thread= False
+        try: 
+
+            byte = s.read(1) #read one byte (blocks until data available or timeout reached) 
+            #print (byte)
+
+            if byte ==b'\n': #if termination character reached
+                
+                #print (message)
+                
+                if message =="m[D]":
+                     #print message[6:j-1]
+                    stop_thread=True
+                    break
 
                 #bool = False
 
@@ -91,6 +137,8 @@ set_port (s1,"AB")
 
 set_port (s2, "CD")
 
+
+
 Chat = True 
 
 while Chat :
@@ -106,12 +154,10 @@ while Chat :
         t1.start()
 
         t2 = threading.Thread (target = read_msg, args = [s2])
-
+        t1.join()
         t2.start()
 
-    
-
-        t1 = threading.Thread (target = read_msg, args = [s1])
+        t1 = threading.Thread (target = read_board, args = [s1])
         
         time.sleep(0.5)
 
@@ -119,7 +165,10 @@ while Chat :
 
         time.sleep (0.5)
 
-        stop_thread=True
+        stop_thread = True
+        
+
+
 
 
         
@@ -135,7 +184,7 @@ while Chat :
 
         t1.start()
         
-        t2 = threading.Thread (target = read_msg, args = [s2])
+        t2 = threading.Thread (target = read_board, args = [s2])
 
         time.sleep(0.5)
         
@@ -155,8 +204,3 @@ while Chat :
 
 
     time.sleep(0.2)
-
-
-
-
-
